@@ -1,0 +1,155 @@
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+<title>Split (Cone Detection Utility)</title>
+<style>
+BODY {
+  FONT-FAMILY: Verdana, Arial, sans-serif;
+}
+div {
+	margin: 4px 0px 4px 8px;
+}
+td, th {
+	text-align: left;
+	padding: 2px 12px 2px 16px;
+	border-bottom: 1px solid #E0E0E0;
+}
+h4 {
+	color: #000055;
+}
+th {
+	color: #555555;
+}
+thead th {
+	background-color: #E0E0E0;
+}
+</style>
+</head>
+<body>
+    <table border="0" width="100%" style="background-color:#EEEEEE;">
+        <tr>
+            <td width="120" style="text-align:center; vertical-align:middle;"><img src="SegmentIcon.png"></td>
+            <td style="text-align:left"><h3>Cone Segmentation Utility</h3></td>
+        </tr>
+    </table>
+
+    <div style="text-align:right;">
+        <a href="https://nei.nih.gov/intramural/translational-imaging">Tam lab</a>&nbsp;<br />
+        <a href="https://nei.nih.gov/">National Eye Institute</a>&nbsp;<br />
+        <a href="https://www.nih.gov/">National Institutes of Health</a>&nbsp;<br />
+    </div>
+    <div style="color:#000088;">
+        If any portion of this software is used, please cite the following paper in your publication:
+    </div>
+    <div>
+        <b>Jianfei Liu, HaeWon Jung, Alfredo Dubra, and Johnny Tam</b>, 
+        "Cone Photoreceptor Cell Segmentation and Diameter Measurement on
+	Adaptive Optics Images Using Circularly Constrained Active Contour Model,"
+	<i>Investigative Ophthalmology & Visual Science</i>,
+        59(11): 4639 - 4652, 2018
+    </div>
+
+    <h4 style="text-align:center;">Segmentation Parameters</h4>
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><b>Hessian Response</b></td>
+                <td>
+                    This parameter is related to source image contrast. For low contrast images, set it to lower values.
+                </td>
+            </tr>
+            <tr>
+                <td><b>GAC Iteration #</b></td>
+                <td>
+                    If detected cone contours are far outside the visible cone boundaries, set this parameter to a lower value.
+                </td>
+            </tr>
+        </tbody>
+     </table>
+
+    <h4 style="text-align:center;">Keyboard Shortcuts</h4>
+    <table>
+        <thead>
+            <tr>
+                <th>Key</th>
+                <th>Action</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><b>Ctrl+O</b></td>
+                <td>Open</td>
+                <td>Open a Split Image (.tif). You can open multiple images at once.</td>
+            </tr>
+            <tr>
+                <td><b>Ctrl+G</b></td>
+                <td>Segment</td>
+                <td>Display Cone Segmentation dialog. On this dialog you can adjust segmentation parameters, then chose to segment cones either on the current image, or on all open images.</td>
+            </tr>
+            <tr>
+                <td><b>Ctrl+S</b></td>
+                <td>Save</td>
+                <td>Save segmentation results of the current image.</td>
+            </tr>
+            <tr>
+                <td><b>Ctrl+A</b></td>
+                <td>Save All</td>
+                <td>Save segmentation results of all open images.</td>
+            </tr>
+            <tr>
+                <td><b>Ctrl+M</b></td>
+                <td>Default</td>
+                <td>Switch to &ldquo;Default&rdquo; mouse mode. In this mode, you can zoom in and out the image using mouse wheel.</td>
+            </tr>
+            <tr>
+                <td><b>Ctrl+C</b></td>
+                <td>Draw</td>
+                <td>
+                    Switch to &ldquo;Draw Cone Contours&rdquo; mouse mode. In this mode, dragging the mouse around a cone will add a contour.<br />
+                    <i><b>Note:</b></i> You can also erase individual contours by pressing and holding <b>Ctrl</b>, then clicking on a contour.
+                </td>
+            </tr>
+            <tr>
+                <td><b>Ctrl+E</b></td>
+                <td>Edit</td>
+                <td>
+                    Switch to &ldquo;Edit Cone Contours&rdquo; mouse mode. In this mode, clicking on a contour will switch it to the &ldquo;Edit&rdquo; mode, where you can adjust the edges by dragging them with a mouse.<br />
+                    <i><b>Note:</b></i> You can also erase individual contours by pressing and holding <b>Ctrl</b>, then clicking on a contour.
+                </td>
+            </tr>
+            <tr>
+                <td><b>Ctrl+D</b></td>
+                <td>Erase M</td>
+                <td>Switch to &ldquo;Erase Multiple Cone Contours&rdquo; mouse mode. In this mode, dragging the mouse around an area on the image will erase all contours inside that area.</td>
+            </tr>
+            <tr>
+                <td><b>Ctrl+W</b></td>
+                <td>Erase S</td>
+                <td>Switch to &ldquo;Erase Single Cone Contour&rdquo; mouse mode. In this mode, clicking on a cone contour will erase it.</td>
+            </tr>
+            <tr>
+                <td><b>Ctrl+Z</b></td>
+                <td>Redo</td>
+                <td>Undo (redo) the last &ldquo;Draw&rdquo; or &ldquo;Erase&rdquo; operation.</td>
+            </tr>
+            <tr>
+                <td>&nbsp;</td>
+                <td>Clear</td>
+                <td>Clear all history of manual operations. Free up some memory at the expense of undo (redo) operations.</td>
+            </tr>
+            <tr>
+                <td><b>F1</b></td>
+                <td>Help</td>
+                <td>Display this help screen.</td>
+            </tr>
+        </tbody>
+    </table>
+</body>
+</html>
