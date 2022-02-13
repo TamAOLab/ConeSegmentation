@@ -50,8 +50,13 @@ public:
 	void saveState();
 	void loadState();
 
-	void openSplitImages(QStringList & fileNames);
+	void SetVisibility(bool flag = true);
+	bool GetVisibility() { return toggleVisibilityAct->isChecked(); }
+
+	void openSplitImages(QStringList & fileNames, bool save_state=false);
 	void loadSegmentations(QStringList & fileNames);
+	void NextImage() { OnNextImage(); }
+	void PreviousImage() { OnPreviousImage(); }
 
 	void AddConeContours(DoublePointArray &);
 	void RemoveConeContours(DoublePointArray &);
@@ -62,6 +67,8 @@ public:
 
 	MouseOperation MouseOperationType;
 
+	void checkWhatsNew();
+
 signals:
 	void sendFinishSegmentation();
 	void updateProgressText(QString text);
@@ -70,6 +77,7 @@ private slots:
 
 	void ShowAboutDialog();
 	void ShowHelpWindow();
+	void ShowWhatsNewWindow();
 	void openSplitImage();
 	void loadSegmentation();
 	void saveSegmentation();
@@ -88,13 +96,17 @@ private slots:
 	void RedoConeOperations();
 	void RemoveInvisibleShapes();
 	void ShowSettingDialog();
+	void ToggleVisibility();
+	void ToggleInterpolation();
 
 	void showSegmentationPanel();
 	void purgeHistoryFiles();
-	void SegmentConesAll();
-	void SegmentConesCurrent();
+	void SegmentConesChecked(QList<int> checked);
 	void tac();
 	void receiveFinishSegmentation();
+
+	void OnNextImage();
+	void OnPreviousImage();
 
 protected:
 	virtual void closeEvent(QCloseEvent *event);
@@ -113,12 +125,21 @@ private:
 	QDir saveDir;
 	QDir loadDir;
 	string BackupDir;
+	QList<int> checkedItems;
+
+	QDir helpDir;
+	QFileInfo helpFile;
+	QString lastVersion;
 
 	QAction * openSplitImageAct;
 	QAction * loadSegmentationAct;
 	QAction * saveSegmentationAct;
 	QAction * saveAllSegmentationsAct;
 	QAction * quitAct;
+
+	QAction *nextImageAct;
+	QAction *prevImageAct;
+
 	QAction * segmentConesAct;
 	QAction * purgeHistoryAct;
 	QActionGroup * drawActionGroup;
@@ -130,9 +151,12 @@ private:
 	QAction * redoAct;
 	QAction * emptyAct;
 	QAction * settingsAct;
+	QAction * toggleVisibilityAct;
+	QAction * toggleInterpolationAct;
 
-	QAction * aboutAct;
-	QAction * helpAct;
+	QAction* aboutAct;
+	QAction* helpAct;
+	QAction* whatsNewAct;
 
 	QMenu * fileMenu;
 	QMenu * SplitImageInputMenu;
@@ -167,7 +191,7 @@ private:
 	QVBoxLayout *helpLayout;
 	QTextBrowser *helpBrowser;
 
-	void UpdateSplitFileList(unsigned int old_size = 0, bool backup_flag = true);
+	void UpdateSplitFileList(bool newlist = true);
 	void ClearSplitFileList();
 	void LoadSplitFile(int);
 

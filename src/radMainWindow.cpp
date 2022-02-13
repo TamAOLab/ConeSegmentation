@@ -1,3 +1,7 @@
+
+#pragma warning(disable : 4996)
+#define _CRT_SECURE_NO_WARNINGS
+
 #include <QtGlobal>
 #if QT_VERSION >= 0x050000
 #include "QuickView.h"
@@ -47,6 +51,17 @@ void decodeFileList(QStringList &inputNames, QStringList &splitFileNames, QStrin
 		else if (fn.endsWith(".json", Qt::CaseInsensitive))
 			detectionFileNames.append(fn);
 	}
+}
+
+static QString GetListName(std::string &imgpath)
+{
+	QFileInfo qfi(imgpath.c_str());
+	QString basename = qfi.completeBaseName();
+	QFileInfo qcsv(qfi.dir(), basename + QString(".json"));
+	if (qcsv.exists()) {
+		return QString("\xE2\x88\x9A") + basename;
+	}
+	return QString(" ") + basename;
 }
 
 radMainWindow* radMainWindow::TheApp = NULL;
@@ -106,8 +121,8 @@ radMainWindow::radMainWindow()
 	SettingsDlg = new radSettingsDialog(SystemSettings, this);
 
 	SegmentationPanel = new radSegmentationPanel(this);
-	connect(SegmentationPanel, SIGNAL(launchSegmentCurrent()), this, SLOT(SegmentConesCurrent()));
-	connect(SegmentationPanel, SIGNAL(launchSegmentAll()), this, SLOT(SegmentConesAll()));
+	SegmentationPanel->setMinimumSize(screen_width / 5, screen_height / 2);
+	connect(SegmentationPanel, SIGNAL(launchSegmentChecked(QList<int>)), this, SLOT(SegmentConesChecked(QList<int>)));
 
 	createProgressDialog();
 	createHelpWindow();
@@ -161,7 +176,7 @@ void radMainWindow::dropEvent(QDropEvent *e)
 	}
 	decodeFileList(inputNames, splitFileNames, segmentationFileNames);
 
-	openSplitImages(splitFileNames);
+	openSplitImages(splitFileNames, true);
 	loadSegmentations(segmentationFileNames);
 }
 
@@ -264,13 +279,37 @@ void radMainWindow::createActions()
 	settingsAct->setToolTip("Image Display Settings");
 	connect(settingsAct, SIGNAL(triggered()), SLOT(ShowSettingDialog()));
 
+	toggleVisibilityAct = new QAction(tr("Toggle Visibility"), this);
+	toggleVisibilityAct->setCheckable(true);
+	toggleVisibilityAct->setChecked(true);
+	toggleVisibilityAct->setShortcut(QKeySequence(tr("F2")));
+	toggleVisibilityAct->setToolTip(tr("Toggle Segmented Cone Visibility (F2)"));
+	connect(toggleVisibilityAct, SIGNAL(triggered()), this, SLOT(ToggleVisibility()));
+
+	toggleInterpolationAct = new QAction(tr("Toggle Interpolation"), this);
+	toggleInterpolationAct->setCheckable(true);
+	toggleInterpolationAct->setChecked(true);
+	toggleInterpolationAct->setShortcut(QKeySequence(tr("Ctrl+I")));
+	toggleInterpolationAct->setToolTip(tr("Toggle Image Scale Pixel Interpolation (Ctrl+I)"));
+	connect(toggleInterpolationAct, SIGNAL(triggered()), this, SLOT(ToggleInterpolation()));
+
 	helpAct = new QAction(tr("Help"), this);
 	helpAct->setShortcut(QKeySequence(tr("F1")));
 	helpAct->setToolTip(tr("Display help screen (F1)"));
 	helpAct->setIcon(QIcon(":help.png"));
 	connect(helpAct, SIGNAL(triggered()), this, SLOT(ShowHelpWindow()));
-}
 
+	whatsNewAct = new QAction(tr("What's new?"), this);
+	whatsNewAct->setIcon(QIcon(":help.png"));
+	connect(whatsNewAct, SIGNAL(triggered()), this, SLOT(ShowWhatsNewWindow()));
+
+	nextImageAct = new QAction(tr("Next Image"), this);
+	nextImageAct->setShortcut(QKeySequence(tr("Down")));
+	connect(nextImageAct, SIGNAL(triggered()), this, SLOT(OnNextImage()));
+	prevImageAct = new QAction(tr("Previous Image"), this);
+	prevImageAct->setShortcut(QKeySequence(tr("Up")));
+	connect(prevImageAct, SIGNAL(triggered()), this, SLOT(OnPreviousImage()));
+}
 
 void radMainWindow::createMenu()
 {
@@ -289,11 +328,15 @@ void radMainWindow::createMenu()
 
 	SplitMenu = menuBar()->addMenu(tr("&Split"));
 	SplitMenu->addAction(segmentConesAct);
+	SplitMenu->addAction(toggleVisibilityAct);
+	SplitMenu->addAction(toggleInterpolationAct);
 	SplitMenu->addSeparator();
 	SplitMenu->addAction(purgeHistoryAct);
 
 	helpMenu = menuBar()->addMenu(tr("&Help"));
 	helpMenu->addAction(helpAct);
+	helpMenu->addAction(whatsNewAct);
+	helpMenu->addSeparator();
 	helpMenu->addAction(aboutAct);
 }
 
@@ -370,7 +413,6 @@ void radMainWindow::createProgressDialog()
 void radMainWindow::createHelpWindow()
 {
 	helpWindow = new QWidget();
-	helpWindow->setWindowTitle(tr("Help on Cone Segmentation"));
 	helpWindow->setWindowIcon(QIcon(":help.png"));
 	helpLayout = new QVBoxLayout();
 	helpBrowser = new QTextBrowser();
@@ -379,22 +421,16 @@ void radMainWindow::createHelpWindow()
 	helpWindow->setLayout(helpLayout);
 
 	QDir appDir(QCoreApplication::applicationDirPath());
-	QDir helpDir = appDir.absoluteFilePath(tr("Help"));
-	QFileInfo helpFile(helpDir.path(), tr("segment.html"));
+	helpDir.setPath(appDir.absoluteFilePath(tr("Help")));
+	helpFile = QFileInfo(helpDir.path(), tr("segment.html"));
 	if (!helpFile.exists()) {
 		appDir.cdUp();
-		helpDir = appDir.absoluteFilePath(tr("Help"));
+		helpDir.setPath(appDir.absoluteFilePath(tr("Help")));
 		helpFile = QFileInfo(helpDir.path(), tr("segment.html"));
 	}
-	if (helpFile.exists()) {
-		helpBrowser->setSource(QUrl::fromLocalFile(helpFile.filePath()));
-	}
-	else {
-		helpBrowser->setText("Sorry, no help available at this time.");
-	}
 
-	helpWindow->setMinimumSize(screen_width * 2 / 5, screen_height * 4 / 7);
-	helpWindow->move(screen_width / 5, screen_height * 1 / 7);
+	helpWindow->setMinimumSize(screen_width * 55 / 100, screen_height * 50 / 100);
+	helpWindow->move(screen_width * 20 / 100, screen_height * 25 / 100);
 }
 
 void radMainWindow::ShowAboutDialog()
@@ -405,12 +441,55 @@ void radMainWindow::ShowAboutDialog()
 
 void radMainWindow::ShowHelpWindow()
 {
+	helpWindow->setWindowTitle(tr("Help on Cone Segmentation"));
+	if (helpFile.exists()) {
+		helpBrowser->setSource(QUrl::fromLocalFile(helpFile.filePath()));
+	}
+	else {
+		helpBrowser->setText("Sorry, no help available at this time.");
+	}
 	helpWindow->showNormal();
 	helpWindow->activateWindow();
 }
 
-void radMainWindow::openSplitImages(QStringList & fileNames)
+void radMainWindow::ShowWhatsNewWindow()
 {
+	QFileInfo whatsNewFile(helpDir.path(), tr("whatsnew.html"));
+	if (!whatsNewFile.exists()) {
+		return;
+	}
+	helpWindow->setWindowTitle(tr("What's new in Cone Segmentation"));
+	helpBrowser->setSource(QUrl::fromLocalFile(whatsNewFile.filePath()));
+	helpWindow->showNormal();
+	helpWindow->activateWindow();
+}
+
+void radMainWindow::OnNextImage()
+{
+	if (SplitFileListWidget->count() == 0) return;
+	int curRow = SplitFileListWidget->currentRow();
+	if (curRow < 0) curRow = 0;
+	else if (curRow + 1 < SplitFileListWidget->count()) ++curRow;
+	if (curRow != SplitFileListWidget->currentRow()) {
+		SplitFileListWidget->setCurrentRow(curRow);
+		SplitFileListWidget->item(curRow)->setSelected(true);
+	}
+}
+void radMainWindow::OnPreviousImage()
+{
+	if (SplitFileListWidget->count() == 0) return;
+	int curRow = SplitFileListWidget->currentRow();
+	if (curRow < 0) curRow = 0;
+	else if (curRow > 0) --curRow;
+	if (curRow != SplitFileListWidget->currentRow()) {
+		SplitFileListWidget->setCurrentRow(curRow);
+		SplitFileListWidget->item(curRow)->setSelected(true);
+	}
+}
+
+void radMainWindow::openSplitImages(QStringList & fileNames, bool save_state)
+{
+	if (!GetVisibility()) SetVisibility(true);
 	if (fileNames.isEmpty()) return;
 
 	ClearSplitFileList();
@@ -422,23 +501,51 @@ void radMainWindow::openSplitImages(QStringList & fileNames)
 	{
 		SplitMarkerInfor[i].Initialize();
 		RGBImageType::Pointer res = FileIO->ReadSplitImage(fileNames[i].toStdString());
-		if (res)
+		if (res.GetPointer())
 		{
 			res = CreateTiffImage<RGBImageType>(res);
 			SplitMarkerInfor[j].split_image = res;
 			SplitMarkerInfor[j].split_file_names.first = fileNames[i].toStdString();
-			LoadBackupResults(j);
+			SplitMarkerInfor[j].color_info.reset();
+			// LoadBackupResults(j);
 			++j;
 		}
 	}
 
 	SplitMarkerInfor.resize(j);
+	if (j == 0) return;
 
 	UpdateSplitFileList();
-	LoadSplitFile(0);
 
-	SplitFileListWidget->setCurrentRow(0);
-	SplitFileListWidget->item(0)->setSelected(true);
+	if (SplitMarkerInfor.size() > 0) {
+		radBackup back_up;
+		back_up.SetBackupDir(BackupDir);
+
+		for (int id = 0; size_t(id) < SplitMarkerInfor.size(); id++) {
+			if (!back_up.ReadBackup(SplitMarkerInfor[id])) {
+				// First time -- try to open accompanying .json
+				QFileInfo qimgfi(SplitMarkerInfor[id].split_file_names.first.c_str());
+				QDir qimgdir = qimgfi.dir();
+				QString jsonfn = qimgfi.completeBaseName() + ".json";
+				QFileInfo qjsonfi(qimgdir, jsonfn);
+				if (qjsonfi.exists()) {
+					QFile qfi(qjsonfi.canonicalFilePath());
+					ContourMarkersFromJSON(qfi, SplitMarkerInfor, true);
+					back_up.WriteBackup(SplitMarkerInfor[id]);
+				}
+			}
+		}
+	}
+
+	if (save_state && SplitMarkerInfor.size() > 0) {
+		QFileInfo qimgfi(SplitMarkerInfor[0].split_file_names.first.c_str());
+		saveDir = qimgfi.dir();
+		saveState();
+	}
+
+	LoadSplitFile(0);
+	SplitFileListWidget->setCurrentRow(CurrentImageIndex);
+	SplitFileListWidget->item(CurrentImageIndex)->setSelected(true);
 	BackupResults(CurrentImageIndex);
 }
 
@@ -446,7 +553,12 @@ void radMainWindow::openSplitImage()
 {
 	QFileDialog dialog(this);
     dialog.setFileMode(QFileDialog::ExistingFiles);
-	dialog.setNameFilter(tr("TIFF (*.tif)"));
+	QStringList filters;
+	filters << "TIFF (*.tif)";
+	// filters << "PNG (*.png)";
+	// filters << "JPEG (*.jpg)";
+	// filters << "BMP (*.bmp)";
+	dialog.setNameFilters(filters);
 	dialog.setWindowTitle("Open Split Image");
 	dialog.restoreState(fileDialogState);
 	dialog.setDirectory(loadDir);
@@ -460,7 +572,7 @@ void radMainWindow::openSplitImage()
     if ( !fileNames.isEmpty() )
     {
 
-		loadDir = dialog.directory();
+		saveDir = loadDir = dialog.directory();
 		fileDialogState = dialog.saveState();
 		saveState();
 
@@ -527,9 +639,7 @@ void radMainWindow::saveSegmentation()
 		|| SplitFileListWidget->currentRow() >= SplitFileListWidget->count())
 		return;
 
-	string basename = SplitFileListWidget->currentItem()->text().toStdString();
-
-	QString preferredName = saveDir.filePath(QString::fromStdString(basename+".json"));
+	QString preferredName = QString::fromStdString(SplitMarkerInfor[SplitFileListWidget->currentRow()].split_file_names.second) + ".json";
 
 	QFileDialog dialog(this);
 	dialog.setFileMode(QFileDialog::AnyFile);
@@ -549,6 +659,7 @@ void radMainWindow::saveSegmentation()
 		fileDialogState = dialog.saveState();
 		saveState();
 		SaveContourMarkers(SplitMarkerInfor[CurrentImageIndex], filename);
+		UpdateSplitFileList(false);
 	}
 }
 
@@ -580,16 +691,18 @@ void radMainWindow::saveAllSegmentations()
 	int cnt = 0;
 
 	for (int row = 0; row < SplitFileListWidget->count(); row++) {
-		string fn = SplitFileListWidget->item(row)->text().toStdString() + ".json";
-		QFileInfo saveFile = QFileInfo(saveDir, QString(fn.c_str()));
+		QString qfn = QString::fromStdString(SplitMarkerInfor[row].split_file_names.second) + ".json";
+		QFileInfo saveFile = QFileInfo(saveDir, qfn);
 		if (saveFile.exists()) {
 			++cnt;
 			if (cnt <= 10) {
 				if (existing.size() > 0) existing = existing + "\n";
-				existing = existing + fn;
+				existing = existing + qfn.toStdString();
 			}
 		}
-		todo.push_back(std::make_pair(saveFile, (size_t)row));
+		else if (!SplitMarkerInfor[row].cone_contour_markers.empty()) {
+			todo.push_back(std::make_pair(saveFile, (size_t)row));
+		}
 	}
 
 	if (existing.size() > 0) {
@@ -605,10 +718,11 @@ void radMainWindow::saveAllSegmentations()
 			existing.clear();
 	}
 	if (existing.size() == 0) {
-		for (int row = 0; row < SplitFileListWidget->count(); row++) {
-			QFileInfo fn = todo[row].first;
-			SaveContourMarkers(SplitMarkerInfor[(size_t)todo[row].second], fn.absoluteFilePath());
+		for (std::pair<QFileInfo, size_t> & item : todo) {
+			QFileInfo fn = item.first;
+			SaveContourMarkers(SplitMarkerInfor[(size_t)item.second], fn.absoluteFilePath());
 		}
+		UpdateSplitFileList(false);
 	}
 }
 
@@ -622,6 +736,7 @@ void radMainWindow::LoadSplitFile(int id)
 	CurrentImageIndex = id;
 	ImageView->InitializeView();
 	ImageView->SetSplitImage(SplitMarkerInfor[id].split_image);
+	ImageView->SetColorInfo(SplitMarkerInfor[id].color_info);
 	ImageView->SetContourMarkers(SplitMarkerInfor[id].cone_contour_markers);
 	ImageView->ResetView();
 }
@@ -636,28 +751,24 @@ void radMainWindow::quit()
     close();
 }
 
-void radMainWindow::UpdateSplitFileList(unsigned int old_size, bool backup_flag)
+void radMainWindow::UpdateSplitFileList(bool newlist)
 {
-	for (int i=old_size; i<SplitMarkerInfor.size(); i++)
-	{
-		string str;
-		size_t pos, pos1;
-
-		pos = SplitMarkerInfor.at(i).split_file_names.first.rfind(".");
-		pos1 = SplitMarkerInfor.at(i).split_file_names.first.rfind("/");
-		if (pos != std::string::npos && pos1 != std::string::npos)
+	if (size_t(SplitFileListWidget->count()) != SplitMarkerInfor.size())
+		newlist = true;
+	if (newlist) {
+		SplitFileListWidget->clear();
+		for (int i = 0; i < SplitMarkerInfor.size(); i++)
 		{
-			str.assign(SplitMarkerInfor.at(i).split_file_names.first.begin()+pos1+1, 
-				SplitMarkerInfor.at(i).split_file_names.first.begin()+pos);
-			SplitMarkerInfor.at(i).split_file_names.second = str;
-			SplitFileListWidget->addItem(new QListWidgetItem(str.c_str()));
-
-			if (backup_flag)
-				LoadBackupResults(i);
+			QFileInfo qfi(SplitMarkerInfor[i].split_file_names.first.c_str());
+			QString basename = qfi.completeBaseName();
+			SplitMarkerInfor[i].split_file_names.second = basename.toStdString();
+			SplitFileListWidget->addItem(new QListWidgetItem(GetListName(SplitMarkerInfor[i].split_file_names.first)));
 		}
-
-		//Possible just read the image, and start backup 
-		BackupResults(i);
+	}
+	else {
+		for (int i = 0; i < SplitMarkerInfor.size(); i++) {
+			SplitFileListWidget->item(i)->setText(GetListName(SplitMarkerInfor[i].split_file_names.first));
+		}
 	}
 }
 
@@ -671,16 +782,20 @@ void radMainWindow::SwitchSplitFile(QListWidgetItem *item, QListWidgetItem *prev
 {
 	int i;
 
-	if (previous)
+	if (previous) {
+		std::string prev = previous->text().mid(1).toStdString();
 		for (i = 0; i < SplitMarkerInfor.size(); i++) {
-			if (SplitMarkerInfor.at(i).split_file_names.second.compare(previous->text().toStdString()) == 0) {
+			if (SplitMarkerInfor.at(i).split_file_names.second.compare(prev) == 0) {
+				SplitMarkerInfor[i].color_info = ImageView->GetColorInfo();
 				BackupResults(i);
 			}
 		}
+	}
 	if (item) {
+		std::string curr = item->text().mid(1).toStdString();
 		for (i = 0; i < SplitMarkerInfor.size(); i++)
 		{
-			if (SplitMarkerInfor.at(i).split_file_names.second.compare(item->text().toStdString()) == 0)
+			if (SplitMarkerInfor.at(i).split_file_names.second.compare(curr) == 0)
 			{
 				LoadSplitFile(i);
 			}
@@ -944,32 +1059,51 @@ void radMainWindow::RedoConeOperations()
 
 void radMainWindow::ShowSettingDialog()
 {
+	if (!GetVisibility()) SetVisibility(true);
 	SettingsDlg->updateSettings();
 	SettingsDlg->show();
 	WriteSystemSettings();
 }
 
-void radMainWindow::SegmentConesAll()
+void radMainWindow::ToggleVisibility()
 {
-	progressDialog->reset();
-	progressDialog->setMaximum(8 * SplitMarkerInfor.size());
-	QThread *thread = QThread::create([this] {
-		for (size_t i = 0; i < SplitMarkerInfor.size(); i++)
-		{
-			SegmentCones((int)i);
-		}
-		emit sendFinishSegmentation();
-	});
-	thread->start();
-	progressDialog->exec();
+	SetVisibility(GetVisibility());
 }
 
-void radMainWindow::SegmentConesCurrent()
+void radMainWindow::ToggleInterpolation()
 {
+	ImageView->SetInterpolation(toggleInterpolationAct->isChecked());
+	ImageView->ResetView(false);
+	saveState();
+}
+
+void radMainWindow::SetVisibility(bool flag)
+{
+	toggleVisibilityAct->setChecked(flag);
+	if (flag) {
+		ImageView->SetConeContourVisibility(SystemSettings->visibility_contour);
+		ImageView->SetConeCenterVisibility(SystemSettings->visibility_center);
+		ImageView->SetConeRegionVisibility(SystemSettings->visibility_region);
+	}
+	else {
+		ImageView->SetConeContourVisibility(false);
+		ImageView->SetConeCenterVisibility(false);
+		ImageView->SetConeRegionVisibility(false);
+	}
+	ImageView->ResetView(false);
+}
+
+void radMainWindow::SegmentConesChecked(QList<int> checked)
+{
+	checkedItems = checked;
+	if (checked.size() == 0) return;
+	if (!GetVisibility()) SetVisibility(true);
 	progressDialog->reset();
-	progressDialog->setMaximum(8);
+	progressDialog->setMaximum(8 * checkedItems.size());
 	QThread *thread = QThread::create([this] {
-		SegmentCones(CurrentImageIndex);
+		for (int id : checkedItems) {
+			SegmentCones(id);
+		}
 		emit sendFinishSegmentation();
 	});
 	thread->start();
@@ -984,6 +1118,12 @@ void radMainWindow::tac()
 void radMainWindow::receiveFinishSegmentation()
 {
 	progressDialog->reset();
+
+	if (checkedItems.size() > 0 && checkedItems.indexOf(CurrentImageIndex) < 0) {
+		CurrentImageIndex = checkedItems[0];
+		SplitFileListWidget->setCurrentRow(CurrentImageIndex);
+	}
+
 	BackupResults(CurrentImageIndex);
 
 	qApp->processEvents(QEventLoop::ExcludeUserInputEvents);
@@ -1000,8 +1140,20 @@ void radMainWindow::showSegmentationPanel()
 	EditedContourId = -1;
 	ImageView->DisableEditedContour();
 
-	MarkerInformation & split_infor = SplitMarkerInfor[CurrentImageIndex];
-	SegmentationPanel->SetParameters(split_infor.segment_params);
+	QStringList items;
+	QList<int> checked;
+	for (int row = 0; size_t(row) < SplitMarkerInfor.size(); row++) {
+		LoadBackupResults(row);
+		MarkerInformation & split_infor = SplitMarkerInfor[row];
+		items << split_infor.split_file_names.second.c_str();
+		if (split_infor.cone_contour_markers.size() == 0)
+			checked << row;
+	}
+	SegmentationPanel->SetItemList(items);
+	SegmentationPanel->SetCheckedRows(checked);
+	SegmentationPanel->SetHighlightedRow(CurrentImageIndex);
+
+	SegmentationPanel->SetParameters(SplitMarkerInfor[CurrentImageIndex].segment_params);
 	SegmentationPanel->show();
 }
 
@@ -1012,7 +1164,7 @@ void radMainWindow::SegmentCones(int id)
 	MarkerInformation & split_infor = SplitMarkerInfor[id];
 	split_infor.segment_params = SegmentationPanel->GetParameters();
 
-	emit updateProgressText(SplitFileListWidget->item(id)->text());
+	emit updateProgressText(QString::fromStdString(split_infor.split_file_names.second));
 
 	radConeSegmentation cone_segmentation;
 	connect(&cone_segmentation, SIGNAL(tick()), this, SLOT(tac()));
@@ -1119,6 +1271,8 @@ void radMainWindow::saveState() {
 	jobj["loadDir"] = loadDir.path();
 	jobj["saveDir"] = saveDir.path();
 	jobj["fileDialogState"] = QString(fileDialogState.toBase64());
+	jobj["interpolation"] = ImageView->GetInterpolation();
+	jobj["version"] = QString(Segm_VERSION.c_str());
 	QJsonDocument json = QJsonDocument(jobj);
 
 	// cout << json.toJson(QJsonDocument::Indented).toStdString().c_str() << std::endl;
@@ -1143,5 +1297,30 @@ void radMainWindow::loadState() {
 			saveDir.setPath(jobj["saveDir"].toString());
 		if (jobj["fileDialogState"].isString())
 			fileDialogState = QByteArray::fromBase64(QByteArray(jobj["fileDialogState"].toString().toStdString().c_str()));
+		if (jobj["interpolation"].isBool()) {
+			ImageView->SetInterpolation(jobj["interpolation"].toBool());
+			toggleInterpolationAct->setChecked(ImageView->GetInterpolation());
+		}
+		if (jobj["version"].isString())
+			lastVersion = jobj["version"].toString();
 	}
+}
+
+static long long decode_version(const char* ver)
+{
+	int mj, mn, mc;
+	if (sscanf(ver, "%d.%d.%d ", &mj, &mn, &mc) != 3)
+		return 0L;
+	return (long long)(mj) * 1000000000L + (long long)(mn) * 1000000L + (long long)(mc);
+}
+
+void radMainWindow::checkWhatsNew()
+{
+	long long cur_ver = decode_version(Segm_VERSION.c_str());
+	long long old_ver = decode_version(lastVersion.toStdString().c_str());
+	// std::cout << "cur_ver = " << cur_ver << " ; old_ver = " << old_ver << std::endl;
+	if (cur_ver != old_ver)
+		saveState();
+	if (cur_ver > old_ver)
+		ShowWhatsNewWindow();
 }

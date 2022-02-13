@@ -5,9 +5,11 @@
 #include <QGroupBox>
 #include <QLabel>
 #include <QGridLayout>
-#include <QGridLayout>
 #include <QPushButton>
 #include <QDoubleSpinBox>
+#include <QCheckBox>
+#include <QTableWidget>
+#include <QHeaderView>
 
 #include "radDefinition.h"
 
@@ -22,17 +24,24 @@ public:
 	void SetParameters(ConeSegmentationParameters &params);
 	ConeSegmentationParameters & GetParameters() { return segmentationParameters; }
 
+	void SetItemList(QStringList &items);
+	void SetCheckedRows(QList<int> &rows);
+	void SetHighlightedRow(int row);
+
+protected:
+	virtual void closeEvent(QCloseEvent *event) override;
+	virtual void showEvent(QShowEvent *event) override;
+
 private slots:
 	void ChangeHessianResponse(double value);
 	void ChangeGac(int value);
 
-	void ClickedSegmentCurrent();
-	void ClickedSegmentAll();
+	void ClickedSegmentChecked();
 	void ClickedRestoreDefaults();
+	void onHeaderClicked(int);
 
 signals:
-	void launchSegmentCurrent();
-	void launchSegmentAll();
+	void launchSegmentChecked(QList<int> checked);
 
 private:
 	ConeSegmentationParameters segmentationParameters;
@@ -50,10 +59,16 @@ private:
 
 	QPushButton * RestoreDefaultsButton;
 
-	QPushButton * LaunchCurrentButton;
-	QPushButton * LaunchAllButton;
+	QPushButton * LaunchCheckedButton;
+	QPushButton * CancelButton;
 
-	QVBoxLayout * ViewLayout;
+	QGridLayout *ViewLayout;
+	QTableWidget *imageTable;
+
+	QRect dlgeom;
+	bool dlgeomset = false;
+	QFont normal, bold;
+	QList<int> checkedRows;
 
 	void UpdateParameters();
 	void CreateInputGroup();

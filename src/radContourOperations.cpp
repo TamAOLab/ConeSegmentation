@@ -13,84 +13,48 @@
 #include "radContourOperations.h"
 #include "QuickView.h"
 
-double Angle2D(DoublePointType p1, DoublePointType p2)
+ //-- "Winding Number" algorithm for the inclusion of a point in polygon, adapted from:
+ // http://geomalgorithms.com/a03-inclusion.html
+
+ // tests if a point is Left|On|Right of an infinite line.
+ //    Input:  three points P0, P1, and P2
+ //    Return: >0 for P2 left of the line through P0 and P1
+ //            =0 for P2  on the line
+ //            <0 for P2  right of the line
+static inline int isLeft(DoublePointType P0, DoublePointType P1, DoublePointType P2)
 {
-	double dtheta, theta1, theta2;
-
-	theta1 = atan2(p1[1], p1[0]);
-	theta2 = atan2(p2[1], p2[0]);
-	dtheta = theta2 - theta1;
-   
-	while (dtheta > PI)
-		dtheta -= 2*PI;
-	while (dtheta < -PI)
-		dtheta += 2*PI;
-
-   return dtheta;
+	return ((P1[0] - P0[0]) * (P2[1] - P0[1])
+		- (P2[0] - P0[0]) * (P1[1] - P0[1]));
 }
 
-bool IsPointInsidePolygon(DoublePointType pt, DoublePointArray &contour)
+static bool IsPointInsidePolygon(DoublePointType P, DoublePointArray& vertices)
 {
-	double angle=0;
-	DoublePointType p1, p2;
-	unsigned int pt_num = contour.size();
+	int n = (int)vertices.size();
+	if (n == 0) return false;
 
-	for (unsigned int i=0; i<pt_num; i++) 
-	{
-		for (unsigned int j=0; j<2; j++)
-		{
-			p1[j] = contour[i][j] - pt[j];
-			p2[j] = contour[(i+1)%pt_num][j] - pt[j];
-			angle += Angle2D(p1, p2);
+	// V[] = vertex points of a polygon V[n+1] with V[n]=V[0]
+	std::vector<DoublePointType> V(vertices);
+	V.push_back(vertices[0]);
+
+	int wn = 0;    // the  winding number counter (=0 only when P is outside)
+
+	// loop through all edges of the polygon
+	for (int i = 0; i < n; i++) {		// edge from V[i] to  V[i+1]
+		if (V[i][1] <= P[1]) {			// start y <= P.y
+			if (V[i + 1][1] > P[1])		// an upward crossing
+				if (isLeft(V[i], V[i + 1], P) > 0)	// P left of  edge
+					++wn;				// have  a valid up intersect
 		}
-   }
-
-   if (fabs(angle) < PI)
-	   return false;
-   else
-	   return true;
-}
-
-/*
-int radContourOperations::RemoveConeMarker(DoublePointType &deleted_pt, double toleracne_ratio, MarkerInformation & marker_infor)
-{
-	assert(toleracne_ratio > 0.0);
-	double tolerance_error = toleracne_ratio*(marker_infor.split_image->GetSpacing()[0]+marker_infor.split_image->GetSpacing()[1]);
-	double min_dist = std::numeric_limits<double>::max(), dist;
-	int min_id = -1;
-	for (unsigned int i=0; i<marker_infor.cone_point_markers.size(); i++)
-	{
-		if (marker_infor.cone_point_markers[i].is_visible)
-			//&& fabs(marker_infor.cone_marker_shapes[i].shape_center[0]-deleted_pt[0]) < 0.01
-			//&& fabs(marker_infor.cone_marker_shapes[i].shape_center[1]-deleted_pt[1]) < 0.01)
-		{
-			dist = marker_infor.cone_point_markers[i].marker_center.EuclideanDistanceTo(deleted_pt);
-			if (dist < min_dist && dist < tolerance_error)
-			{
-				min_dist = dist;
-				min_id = i;
-			}
+		else {							// start y > P.y (no test needed)
+			if (V[i + 1][1] <= P[1])		// a downward crossing
+				if (isLeft(V[i], V[i + 1], P) < 0)	// P right of  edge
+					--wn;				// have  a valid down intersect
 		}
 	}
-
-	if (min_id != -1)
-		marker_infor.cone_point_markers[min_id].is_visible = false;
-	return min_id;
-
+	return wn != 0;
 }
 
-void radContourOperations::AddConeMarker(DoublePointType &pt, int detection_category, MarkerInformation &marker_infor)
-{
-	PointMarker marker_pt;
-	marker_pt.Initialize();
-
-	marker_pt.marker_center[0] = pt[0];
-	marker_pt.marker_center[1] = pt[1];
-	marker_pt.marker_type = detection_category;
-
-	marker_infor.cone_point_markers.push_back(marker_pt);
-}
-*/
+//-- End of "Winding Number" algorithm
 
 void radContourOperations::AddConeContour(DoublePointArray &contour_pts, MarkerInformation &marker_infor)
 {

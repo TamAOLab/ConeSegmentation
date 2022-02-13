@@ -7,6 +7,8 @@
  *
  */
 
+#include <QApplication>
+#include <QCursor>
 #include "radImageView.h"
 #include "radmainwindow.h"
 #include <vtkObjectFactory.h>
@@ -21,54 +23,179 @@
 
 vtkStandardNewMacro(radMouseInteractorStylePP);
 
-void radMouseInteractorStylePP::OnKeyDown()
+void radMouseInteractorStylePP::add_contour_pt(double picked[3])
 {
-	MouseOperation op = radMainWindow::GetPointer()->MouseOperationType;
-	if (op == Mouse_Add_Contour || op == Mouse_Edit_Contour)
-	{
-		vtkRenderWindowInteractor *rwi = this->Interactor;
-		std::string key = rwi->GetKeySym();
-		if (key == "Control_L") {
-			ControlDown = true;
-			CursorShape = radMainWindow::GetPointer()->GetImageView()->GetRenderWin()->GetCurrentCursor();
-			radMainWindow::GetPointer()->GetImageView()->GetRenderWin()->SetCurrentCursor(VTK_CURSOR_CROSSHAIR);
+	DoublePointType pt;
+	pt[0] = picked[0];
+	pt[1] = picked[1];
+	contour_pts.push_back(pt);
+	radMainWindow::GetPointer()->GetImageView()->SetInteractiveContours(contour_pts);
+	radMainWindow::GetPointer()->GetImageView()->ResetView(false);
+}
+
+void radMouseInteractorStylePP::closest_border(double picked[3], DoublePointType pt, int* pidx)
+{
+	double dx0 = fabs(pt[0]);
+	double dx1 = fabs(pt[0] - img_dims[0]);
+	double dy0 = fabs(pt[1]);
+	double dy1 = fabs(pt[1] - img_dims[1]);
+	int idx = 0;
+	if (dx0 <= dx1 && dx0 <= dy0 && dx0 <= dy1) {
+		picked[0] = 0.;
+		picked[1] = pt[1];
+	}
+	else if (dx1 <= dy0 && dx1 <= dy1) {
+		picked[0] = double(img_dims[0]);
+		picked[1] = pt[1];
+	}
+	else if (dy0 <= dy1) {
+		picked[0] = pt[0];
+		picked[1] = 0.;
+		idx = 1;
+	}
+	else {
+		picked[0] = pt[0];
+		picked[1] = double(img_dims[1]);
+		idx = 1;
+	}
+	if (pidx) *pidx = idx;
+	// std::cout << "closest_border(): " << picked[0] << " " << picked[1] << std::endl;
+}
+
+void radMouseInteractorStylePP::closest_border_2(double picked[3], DoublePointType pt)
+{
+	int idx1;
+	closest_border(picked, pt, &idx1);
+	if (!contour_pts.empty()) {
+		int idx0;
+		double corner[3];
+		closest_border(corner, contour_pts[contour_pts.size() - 1], &idx0);
+		if (idx0 != idx1) {
+			pt[idx0] = corner[idx0];
+			pt[idx1] = picked[idx1];
+			// std::cout << "corner pt: " << pt[0] << " " << pt[1] << std::endl;
+			contour_pts.push_back(pt);
 		}
 	}
+}
+
+void radMouseInteractorStylePP::OnChar()
+{
+	vtkRenderWindowInteractor* rwi = this->Interactor;
+	char c = rwi->GetKeyCode();
+	if (!strchr("wWrRxXyYzZfF", c)) {
+		vtkInteractorStyleImage::OnChar();
+	}
+}
+
+void radMouseInteractorStylePP::OnKeyDown()
+{
+	while (QApplication::overrideCursor()) QApplication::restoreOverrideCursor();
+	if (!MouseIn) {
+		vtkInteractorStyleImage::OnKeyDown();
+		return;
+	}
+	vtkRenderWindowInteractor *rwi = this->Interactor;
+	std::string key = rwi->GetKeySym();
+	if (key == "Up") {
+		radMainWindow::GetPointer()->PreviousImage();
+		return;
+	}
+	else if (key == "Down") {
+		radMainWindow::GetPointer()->NextImage();
+		return;
+	}
+	if (key == "Shift_L") {
+		ShiftDown = true;
+		if (!MouseScroll) {
+			QApplication::setOverrideCursor(Qt::OpenHandCursor);
+		}
+	}
+	else {
+		MouseOperation op = radMainWindow::GetPointer()->MouseOperationType;
+		if (op == Mouse_Add_Contour || op == Mouse_Edit_Contour)
+		{
+			if (key == "Control_L") {
+				ControlDown = true;
+				while (QApplication::overrideCursor()) QApplication::restoreOverrideCursor();
+				QApplication::setOverrideCursor(Qt::CrossCursor);
+				return;
+			}
+		}
+	}
+	vtkInteractorStyleImage::OnKeyDown();
 }
 
 void radMouseInteractorStylePP::OnKeyUp()
 {
+	while (QApplication::overrideCursor()) QApplication::restoreOverrideCursor();
+	vtkRenderWindowInteractor *rwi = this->Interactor;
+	std::string key = rwi->GetKeySym();
+	if (key == "Up" || key == "Down") {
+		return;
+	}
 	if (ControlDown) {
-		vtkRenderWindowInteractor *rwi = this->Interactor;
-		std::string key = rwi->GetKeySym();
 		if (key == "Control_L") {
 			ControlDown = false;
-			radMainWindow::GetPointer()->GetImageView()->GetRenderWin()->SetCurrentCursor(CursorShape);
+			return;
 		}
 	}
-
+	if (key == "Shift_L") {
+		ShiftDown = false;
+	}
+	vtkInteractorStyleImage::OnKeyUp();
 }
 
 void radMouseInteractorStylePP::OnEnter()
 {
+	while (QApplication::overrideCursor()) QApplication::restoreOverrideCursor();
 	MouseOperation op = radMainWindow::GetPointer()->MouseOperationType;
-	if (this->Interactor->GetControlKey() && (op == Mouse_Add_Contour || op == Mouse_Edit_Contour)) {
-		ControlDown = true;
-		radMainWindow::GetPointer()->GetImageView()->GetRenderWin()->SetCurrentCursor(VTK_CURSOR_CROSSHAIR);
+	if (!MouseIn) {
+		MouseIn = true;
+		if (ShiftDown) QApplication::setOverrideCursor(Qt::OpenHandCursor);
+		else if (ControlDown && (op == Mouse_Add_Contour || op == Mouse_Edit_Contour)) {
+			QApplication::setOverrideCursor(Qt::CrossCursor);
+			return;
+		}
 	}
 	else {
-		ControlDown = false;
+		// If a second OnEnter() received without a matching OnLeave(), the QVTKWidget
+		// does not have keyboard focus and it won't receive OnKeyUp() for Ctrl/Shift either.
+		// Like the user tried to drag the mouse from another widget while holding Shift down.
+		ControlDown = ShiftDown = false;
 	}
+	vtkInteractorStyleImage::OnEnter();
+}
+
+void radMouseInteractorStylePP::OnLeave()
+{
+	MouseIn = false;
+	while (QApplication::overrideCursor()) QApplication::restoreOverrideCursor();
+	vtkInteractorStyleImage::OnLeave();
 }
 
 void radMouseInteractorStylePP::OnLeftButtonDown()
 {
+	while (QApplication::overrideCursor()) QApplication::restoreOverrideCursor();
+	if (!MouseIn) {
+		ControlDown = ShiftDown = false;
+		vtkInteractorStyleImage::OnLeftButtonDown();
+		return;
+	}
+	if (ShiftDown) {
+		MouseScroll = true;
+		QApplication::setOverrideCursor(Qt::SizeAllCursor);
+		vtkInteractorStyleImage::OnLeftButtonDown();
+		return;
+	}
 	LeftMousedPressed = true;
 	MouseOperation op = radMainWindow::GetPointer()->MouseOperationType;
 
 	if (this->Interactor->GetControlKey() && (op == Mouse_Add_Contour || op == Mouse_Edit_Contour)) {
 		// Override Add/Edit if Ctrl is down
 		op = Mouse_Delete_Single_Contour;
+		ControlDown = true;
+		QApplication::setOverrideCursor(Qt::CrossCursor);
 	}
 	if (op == Mouse_Add_Contour || op == Mouse_Delete_Contour)
 	{
@@ -79,15 +206,12 @@ void radMouseInteractorStylePP::OnLeftButtonDown()
 		this->Interactor->GetPicker()->GetPickPosition(picked);
 		
 		//std::cout << "Picked value: " << picked[0] << " " << picked[1] << " " << picked[2] << ", " << pick_value << std::endl;
+		radMainWindow::GetPointer()->GetImageView()->GetImageDimensions(img_dims);
 		if (pick_value != 0)
 		{
-			DoublePointType pt;
-			pt[0] = picked[0];
-			pt[1] = picked[1];
-			contour_pts.push_back(pt);
-			radMainWindow::GetPointer()->GetImageView()->SetInteractiveContours(contour_pts);
-			radMainWindow::GetPointer()->GetImageView()->ResetView(false);
+			add_contour_pt(picked);
 		}
+		last_pick_value = pick_value;
 	}
 	else if (op == Mouse_Edit_Contour)
 	{
@@ -117,12 +241,16 @@ void radMouseInteractorStylePP::OnLeftButtonDown()
 			radMainWindow::GetPointer()->RemoveSingleConeContour(picked[0], picked[1], picked[2]);
 			radMainWindow::GetPointer()->GetImageView()->ResetView(false);
 		}
-	}
+	} else
+		vtkInteractorStyleImage::OnLeftButtonDown();
 }
 
 void radMouseInteractorStylePP::OnMouseMove()
 {
-	if (ControlDown) return;
+	if (ShiftDown) {
+		vtkInteractorStyleImage::OnMouseMove();
+		return;
+	}
 
 	if ((radMainWindow::GetPointer()->MouseOperationType == Mouse_Add_Contour 
 		|| radMainWindow::GetPointer()->MouseOperationType == Mouse_Delete_Contour) 
@@ -135,24 +263,49 @@ void radMouseInteractorStylePP::OnMouseMove()
 		this->Interactor->GetPicker()->GetPickPosition(picked);
 		
 		//std::cout << "Picked value: " << picked[0] << " " << picked[1] << " " << picked[2] << ", " << pick_value << std::endl;
-		if (pick_value != 0)
-		{
-			DoublePointType pt;
-			pt[0] = picked[0];
-			pt[1] = picked[1];
-			contour_pts.push_back(pt);
-			radMainWindow::GetPointer()->GetImageView()->SetInteractiveContours(contour_pts);
-			radMainWindow::GetPointer()->GetImageView()->ResetView(false);
+		if (pick_value == 0) {
+			if (last_pick_value != 0 && !contour_pts.empty()) {
+				closest_border(picked, contour_pts[contour_pts.size() - 1]);
+				add_contour_pt(picked);
+			}
 		}
+		else {
+			if (last_pick_value == 0) {
+				DoublePointType pt;
+				pt[0] = picked[0];
+				pt[1] = picked[1];
+				double bord[3];
+				closest_border_2(bord, pt);
+				add_contour_pt(bord);
+			}
+			add_contour_pt(picked);
+		}
+		last_pick_value = pick_value;
+		return;
 	}
-	else if (!LeftMousedPressed)
-		return vtkInteractorStyleImage::OnMouseMove();
+	vtkInteractorStyleImage::OnMouseMove();
 }
 
 void radMouseInteractorStylePP::OnLeftButtonUp()
 {
-	if ((radMainWindow::GetPointer()->MouseOperationType == Mouse_Add_Contour 
-		|| radMainWindow::GetPointer()->MouseOperationType == Mouse_Delete_Contour)
+	while (QApplication::overrideCursor()) QApplication::restoreOverrideCursor();
+	if (MouseScroll) {
+		MouseScroll = false;
+		if (ShiftDown) QApplication::setOverrideCursor(Qt::OpenHandCursor);
+		vtkInteractorStyleImage::OnLeftButtonUp();
+		LeftMousedPressed = false;
+		return;
+	}
+	MouseOperation op = radMainWindow::GetPointer()->MouseOperationType;
+	if (this->Interactor->GetControlKey() && (op == Mouse_Add_Contour || op == Mouse_Edit_Contour)) {
+		// Override Add/Edit if Ctrl is down
+		op = Mouse_Delete_Single_Contour;
+		ControlDown = true;
+		QApplication::setOverrideCursor(Qt::CrossCursor);
+		LeftMousedPressed = false;
+		return;
+	}
+	if ((op == Mouse_Add_Contour || op == Mouse_Delete_Contour)
 		&& LeftMousedPressed && !ControlDown)
 	{
 		int pick_value =  this->Interactor->GetPicker()->Pick(this->Interactor->GetEventPosition()[0], 
@@ -162,6 +315,10 @@ void radMouseInteractorStylePP::OnLeftButtonUp()
 		this->Interactor->GetPicker()->GetPickPosition(picked);
 		
 		//std::cout << "Picked value: " << picked[0] << " " << picked[1] << " " << picked[2] << ", " << pick_value << std::endl;
+		if (pick_value == 0 && !contour_pts.empty()) {
+			closest_border_2(picked, contour_pts[0]);
+			pick_value = 1;
+		}
 		if (pick_value != 0)
 		{
 			DoublePointType pt;
@@ -181,9 +338,26 @@ void radMouseInteractorStylePP::OnLeftButtonUp()
 		}
 
 		contour_pts.clear();
-	}	
-
+	} else
+		vtkInteractorStyleImage::OnLeftButtonUp();
 	LeftMousedPressed = false;
+}
+
+void radMouseInteractorStylePP::OnMiddleButtonDown()
+{
+	while (QApplication::overrideCursor()) QApplication::restoreOverrideCursor();
+	if (MouseIn) {
+		MouseScroll = true;
+		QApplication::setOverrideCursor(Qt::SizeAllCursor);
+	}
+	vtkInteractorStyleImage::OnMiddleButtonDown();
+}
+void radMouseInteractorStylePP::OnMiddleButtonUp()
+{
+	while (QApplication::overrideCursor()) QApplication::restoreOverrideCursor();
+	MouseScroll = false;
+	if (ShiftDown) QApplication::setOverrideCursor(Qt::OpenHandCursor);
+	vtkInteractorStyleImage::OnMiddleButtonUp();
 }
 
 void radMouseInteractorStylePP::OnRightButtonDown()
@@ -202,9 +376,9 @@ void radMouseInteractorStylePP::OnRightButtonDown()
 			radMainWindow::GetPointer()->RemoveSingleConeContour(picked[0], picked[1], picked[2]);
 			radMainWindow::GetPointer()->GetImageView()->ResetView(false);
 		}
+		return;
 	}
-	else 
-		vtkInteractorStyleImage::OnRightButtonDown();
+	vtkInteractorStyleImage::OnRightButtonDown();
 }
 
 void callbackContourWidget::Execute(vtkObject *caller, unsigned long, void*)
@@ -219,11 +393,16 @@ void callbackContourWidget::Execute(vtkObject *caller, unsigned long, void*)
 
 void radImageView::DrawInputImage()
 {
+	interpolationFlag = true;
 	ImageData = vtkSmartPointer<vtkImageData>::New();
 	ImageData->SetDimensions(1, 1, 1);
 	ImageData->AllocateScalars(VTK_UNSIGNED_CHAR, 1);
 	ImageActor = vtkSmartPointer<vtkImageActor>::New();
 	ImageActor->SetInputData(ImageData);
+	if (interpolationFlag)
+		ImageActor->InterpolateOn();
+	else
+		ImageActor->InterpolateOff();
 }
 
 void radImageView::DrawInteractiveContours()
@@ -396,6 +575,19 @@ void radImageView::SetSplitImage(RGBImageType::Pointer img)
 	ImageData->Modified();
 }
 
+void radImageView::SetColorInfo(ColorInfo ci)
+{
+	ImageActor->GetProperty()->SetColorLevel(ci.color_level);
+	ImageActor->GetProperty()->SetColorWindow(ci.color_window);
+}
+ColorInfo radImageView::GetColorInfo()
+{
+	ColorInfo ci;
+	ci.color_level = ImageActor->GetProperty()->GetColorLevel();
+	ci.color_window = ImageActor->GetProperty()->GetColorWindow();
+	return ci;
+}
+
 void radImageView::InitializeView()
 {
 	InteractiveContourPoints->Initialize();
@@ -426,6 +618,15 @@ void radImageView::InitializeView()
 	CenterPoints->SetNumberOfPoints(0);
 	CenterPolydata->Modified();
 	// CenterGlyph->Update();
+}
+
+void radImageView::SetInterpolation(bool flag)
+{
+	interpolationFlag = flag;
+	if (interpolationFlag)
+		ImageActor->InterpolateOn();
+	else
+		ImageActor->InterpolateOff();
 }
 
 void radImageView::ChangeCameraOrientation(vtkSmartPointer<vtkRenderer> img_ren)

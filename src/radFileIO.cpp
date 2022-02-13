@@ -8,8 +8,6 @@
  */
 
 #include "radFileIO.h"
-//#include "radTifIO.h"
-//#include "TIFFReaderWriter.h"
 #include <itkPoint.h>
 #include <itkPolygonSpatialObject.h>
 #include <vtkPointData.h>
@@ -99,7 +97,7 @@ static bool jsonToContourMarker(QJsonObject & jobj, MarkerInformation & split_in
 	return true;
 }
 
-int ContourMarkersFromJSON(QFile & fi, std::vector<MarkerInformation> & SplitMarkerInfor)
+int ContourMarkersFromJSON(QFile & fi, std::vector<MarkerInformation> & SplitMarkerInfor, bool ignore_path)
 {
 	if (fi.open(QIODevice::ReadOnly)) {
 		QJsonDocument json = QJsonDocument::fromJson(fi.readAll());
@@ -108,13 +106,17 @@ int ContourMarkersFromJSON(QFile & fi, std::vector<MarkerInformation> & SplitMar
 		QJsonObject jobj = json.object();
 		if (!jobj["filename"].isString()) return -1;
 		std::string filename = jobj["filename"].toString().toStdString();
+		if (ignore_path) {
+			QFileInfo qfp(filename.c_str());
+			filename = qfp.completeBaseName().toStdString();
+		}
 		for (size_t id = 0; id < SplitMarkerInfor.size(); id++) {
-			if (SplitMarkerInfor[id].split_file_names.first == filename) {
-				if (jsonToContourMarker(jobj, SplitMarkerInfor[id]))
-					return (int)id;
-				else
-					return -1;
-			}
+			if (ignore_path && SplitMarkerInfor[id].split_file_names.second != filename) continue;
+			if (!ignore_path && SplitMarkerInfor[id].split_file_names.first != filename) continue;
+			if (jsonToContourMarker(jobj, SplitMarkerInfor[id]))
+				return (int)id;
+			else
+				return -1;
 		}
 	}
 	return -1;
@@ -156,7 +158,11 @@ void SaveContourMarkers(MarkerInformation & split_infor, QString jsonfile)
 	QString centersName = baseName + "_detections.csv";
 	QString measurementsName = baseName + "_measurements.csv";
 	// Save contours
+#ifdef _WIN32
+	ofstream foutContours(contoursName.toStdWString(), std::ofstream::out);
+#else
 	ofstream foutContours(contoursName.toStdString(), std::ofstream::out);
+#endif
 	if (foutContours.is_open()) {
 		foutContours << "# Contour point coordinate pairs: X1 Y1 X2 Y2 X3 Y3 ..." << std::endl;
 		for (ContourMarker & marker : markers)
@@ -164,7 +170,7 @@ void SaveContourMarkers(MarkerInformation & split_infor, QString jsonfile)
 			if (!marker.is_visible) continue;
 			size_t ncont = marker.marker_contours.size();
 			for (size_t j = 0; j < ncont; j++) {
-				foutContours << marker.marker_contours[j][0] << "" << marker.marker_contours[j][1];
+				foutContours << marker.marker_contours[j][0] << "," << marker.marker_contours[j][1];
 				if (j == ncont - 1)
 					foutContours << std::endl;
 				else
@@ -174,7 +180,11 @@ void SaveContourMarkers(MarkerInformation & split_infor, QString jsonfile)
 		foutContours.close();
 	}
 	// Save center points
+#ifdef _WIN32
+	ofstream foutCenters(centersName.toStdWString(), std::ofstream::out);
+#else
 	ofstream foutCenters(centersName.toStdString(), std::ofstream::out);
+#endif
 	if (foutCenters.is_open()) {
 		foutCenters << "# Contour center point coordinates: XCenter YCenter" << std::endl;
 		for (ContourMarker & marker : markers)
@@ -185,7 +195,11 @@ void SaveContourMarkers(MarkerInformation & split_infor, QString jsonfile)
 		foutCenters.close();
 	}
 	// Save areas and diameters
+#ifdef _WIN32
+	ofstream foutMeasurements(measurementsName.toStdWString(), std::ofstream::out);
+#else
 	ofstream foutMeasurements(measurementsName.toStdString(), std::ofstream::out);
+#endif
 	if (foutMeasurements.is_open()) {
 		foutMeasurements << "# Contour measurements: Area Diameter" << std::endl;
 		for (ContourMarker & marker : markers)
@@ -223,9 +237,15 @@ RGBImageType::Pointer radFileIO::ReadSplitImage(string fileName)
 {
 	typedef itk::ImageFileReader<RGBImageType> ReaderType;
 	ReaderType::Pointer reader = ReaderType::New();
+	RGBImageType::Pointer res = NULL;
+
 	reader->SetFileName(fileName.c_str());
-	
-	reader->Update();
-	return reader->GetOutput();
+	try {
+		reader->Update();
+		res = reader->GetOutput();
+	}
+	catch (...) {}
+
+	return res;
 }
 

@@ -10,6 +10,8 @@
 #ifndef radFileIO_H
 #define radFileIO_H
 
+#define _CRT_SECURE_NO_WARNINGS
+
 #include "radImgFunc.h"
 #include <itkSpatialObjectToImageFilter.h>
 #include <itkPasteImageFilter.h>
@@ -33,7 +35,7 @@
 #include <vector>
 
 void ContourMarkersToJSON(MarkerInformation & split_infor, QFile & fo);
-int ContourMarkersFromJSON(QFile & fi, std::vector<MarkerInformation> & SplitMarkerInfor);
+int ContourMarkersFromJSON(QFile & fi, std::vector<MarkerInformation> & SplitMarkerInfor, bool ignore_path=false);
 
 void SaveContourMarkers(MarkerInformation & split_infor, QString jsonfile);
 

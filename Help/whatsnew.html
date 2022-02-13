@@ -1,0 +1,66 @@
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+<title>What's new &ndash; Cone Segmentation Utility</title>
+<style>
+BODY {
+  FONT-FAMILY: Verdana, Arial, sans-serif;
+}
+div {
+	margin: 4px 0px 4px 8px;
+}
+td, th {
+	text-align: left;
+	padding: 2px 12px 2px 16px;
+	border-bottom: 1px solid #E0E0E0;
+}
+h4 {
+	color: #000055;
+	margin-top: 48;
+}
+th {
+	color: #555555;
+}
+thead th {
+	background-color: #E0E0E0;
+}
+</style>
+</head>
+<body>
+
+<h3 style="text-align:center;">What's new &ndash; Cone Segmentation Utility</h3>
+
+<h4 style="text-align:left;">Version 1.1.001 (2022-02-13)</h4>
+<ul>
+	<li>Brightness/contrast is now set separately for each image, and it is not carried over to other images.</li>
+	<li>Fixed issues with deleting annotations in <i>Erase M</i> mouse mode at the image borders.</li>
+	<li>Disabled default behavior of keystrokes such as &ldquo;W&rdquo;, &ldquo;R&rdquo;,
+	&ldquo;X&rdquo;, &ldquo;Y&rdquo;, etc.</li>
+	<li>After dragging in image files from a directory, the default save directory is changed to the one
+	where the files were dragged in from.</li>
+</ul>
+
+<h4 style="text-align:left;">Version 1.1.0 (2021-05-17)</h4>
+<ul>
+	<li>Change mouse cursor to <i>OpenHand</i> when Shift is pressed, and to <i>MoveAll</i> when
+	scrolling the image with <b>Shift+</b>Left Button or Middle Button.</li>
+	<li><b>Up</b> and <b>Down</b> arrows switch between open images
+	(even if the image list does not have focus).</li>
+	<li>The &ldquo;Segment&rdquo; dialog displays a list of open images with check boxes,
+	allowing the user to select which images to segment (and replace existing segmentations).
+	Initially only images that don't have any contours on them are checked, but there is
+	a &ldquo;&radic;&rdquo; header to check/uncheck all.</li>
+	<li>A &ldquo;&radic;&rdquo; symbol is placed next to image name in the list of open images
+	if there is a matching *_contours.csv file in the same directory as the image (*.tif) file.
+	An image may actually have some contours on it, but they are not saved.</li>
+	<li>A bug with broken *_contours.csv format has been fixed.</li>
+	<li>Toggle pixel interpolation for image zoom resampling (<b>Ctrl+I</b> or menu
+	<i>Split</i> &rarr; <i>Toggle Interpolation</i>).</li>
+	<li>F2 toggles cone glyph visibility.</li>
+	<li>Fixed Unicode issues under Windows.</li>
+</ul>
+<p>&nbsp;</p>
+
+</body>
+</html>
+

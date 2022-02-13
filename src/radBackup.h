@@ -54,7 +54,7 @@ public:
 	void ReadSegmentationParameters(string &file_dir, MarkerInformation  & split_infor);
 
 	void WriteBackup(MarkerInformation &);
-	void ReadBackup(MarkerInformation &);
+	bool ReadBackup(MarkerInformation &);
 
 	bool RemoveDir(const QString &dirName);
 

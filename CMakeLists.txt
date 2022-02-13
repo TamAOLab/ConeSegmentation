@@ -1,20 +1,23 @@
 
-cmake_minimum_required(VERSION 2.8.11)
+cmake_minimum_required(VERSION 3.10.0)
 cmake_policy(SET CMP0020 NEW)
+cmake_policy(SET CMP0076 NEW)
 set(CMAKE_SOURCE_DIR src)
+
 set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION ".")
 include(InstallRequiredSystemLibraries)
 
 set(PROJECT_NAME "ConeSegmentation")
-set(PROJECT_VER "1.0.0")
+set(PROJECT_VER "1.1.0")
+set(PROJECT_BUILD "01")
 PROJECT(${PROJECT_NAME})
 
 string(TIMESTAMP PROJECT_DATE "%Y-%m-%d")
-message("Configuring ${PROJECT_NAME} ver. ${PROJECT_VER} (${PROJECT_DATE})")
+message("Configuring ${PROJECT_NAME} ver. ${PROJECT_VER}${PROJECT_BUILD} (${PROJECT_DATE})")
 
 file(WRITE src/version.h
      "/* Auto-generated file. Don't modify! */\n"
-     "const char *__version__ = \"${PROJECT_VER} (${PROJECT_DATE})\";\n"
+     "const char *__version__ = \"${PROJECT_VER}${PROJECT_BUILD} (${PROJECT_DATE})\";\n"
 )
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
@@ -110,51 +113,21 @@ foreach( dll ${QT5_DLLS} )
 endforeach(dll)
 
 # copy all vtk dll depending on msvc debug or release build
-list(APPEND VTK_DLLS
-	"vtkalglib-${VTK_VER}.dll"
-	"vtkCommonColor-${VTK_VER}.dll"
-	"vtkCommonComputationalGeometry-${VTK_VER}.dll"
-	"vtkCommonCore-${VTK_VER}.dll"
-	"vtkCommonDataModel-${VTK_VER}.dll"
-	"vtkCommonExecutionModel-${VTK_VER}.dll"
-	"vtkCommonMath-${VTK_VER}.dll"
-	"vtkCommonMisc-${VTK_VER}.dll"
-	"vtkCommonSystem-${VTK_VER}.dll"
-	"vtkCommonTransforms-${VTK_VER}.dll"
-	"vtkFiltersCore-${VTK_VER}.dll"
-	"vtkFiltersExtraction-${VTK_VER}.dll"
-	"vtkFiltersGeneral-${VTK_VER}.dll"
-	"vtkFiltersGeometry-${VTK_VER}.dll"
-	"vtkFiltersHybrid-${VTK_VER}.dll"
-	"vtkFiltersModeling-${VTK_VER}.dll"
-	"vtkFiltersSources-${VTK_VER}.dll"
-	"vtkFiltersStatistics-${VTK_VER}.dll"
-	"vtkFreetype-${VTK_VER}.dll"
-	"vtkgl2ps-${VTK_VER}.dll"
-	"vtkglew-${VTK_VER}.dll"
-	"vtkGUISupportQt-${VTK_VER}.dll"
-	"vtkImagingColor-${VTK_VER}.dll"
-	"vtkImagingCore-${VTK_VER}.dll"
-	"vtkImagingFourier-${VTK_VER}.dll"
-	"vtkImagingGeneral-${VTK_VER}.dll"
-	"vtkImagingHybrid-${VTK_VER}.dll"
-	"vtkImagingSources-${VTK_VER}.dll"
-	"vtkInteractionStyle-${VTK_VER}.dll"
-	"vtkInteractionWidgets-${VTK_VER}.dll"
-	"vtkpng-${VTK_VER}.dll"
-	"vtkRenderingAnnotation-${VTK_VER}.dll"
-	"vtkRenderingCore-${VTK_VER}.dll"
-	"vtkRenderingFreetype-${VTK_VER}.dll"
-	"vtkRenderingGL2PSOpenGL2-${VTK_VER}.dll"
-	"vtkRenderingOpenGL2-${VTK_VER}.dll"
-	"vtkRenderingVolume-${VTK_VER}.dll"
-	"vtksys-${VTK_VER}.dll"
-	"vtkzlib-${VTK_VER}.dll"
-)
-foreach( dll ${VTK_DLLS} )
+#
+file(GLOB VTK_DLLS "${VTK_DLL}/Release/*-${VTK_VER}.dll")
+
+foreach( dll_path ${VTK_DLLS} )
+	get_filename_component(dll ${dll_path} NAME)
     cp_vtk(${PROJECT_NAME} ${dll})
     install(FILES ${VTK_DLL}/Release/${dll} DESTINATION . CONFIGURATIONS Release)
-endforeach(dll)
+endforeach(dll_path)
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${Qt5_DIR}/../../../plugins/platforms/qwindows.dll" "$<TARGET_FILE_DIR:${PROJECT_NAME}>/platforms/qwindows.dll")
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${Qt5_DIR}/../../../plugins/imageformats/qtiff.dll" "$<TARGET_FILE_DIR:${PROJECT_NAME}>/imageformats/qtiff.dll")
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${Qt5_DIR}/../../../translations/qt_en.qm" "$<TARGET_FILE_DIR:${PROJECT_NAME}>/translations/qt_en.qm")
 
 install(FILES "${Qt5_DIR}/../../../plugins/platforms/qwindows.dll" DESTINATION "./platforms" CONFIGURATIONS Release)
 #install(FILES "${Qt5_DIR}/../../../plugins/iconengines/qsvgicon.dll" DESTINATION "./iconengines")

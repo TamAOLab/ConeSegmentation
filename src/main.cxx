@@ -21,8 +21,11 @@ int main(int argc, char** argv)
 	window.show();
 
 	if (!splitFileNames.isEmpty()) {
-		window.openSplitImages(splitFileNames);
+		window.openSplitImages(splitFileNames, true);
 		window.loadSegmentations(segmentationFileNames);
+	}
+	else {
+		window.checkWhatsNew();
 	}
 
 	app.exec();

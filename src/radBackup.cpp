@@ -65,7 +65,12 @@ void radBackup::ExtractNumsFromString(string &record, vector<T> &arr, int data_t
 bool radBackup::ReadTxtFile(const char *filename, vector<string> & str_list)
 {
 	string line;
+#ifdef _WIN32
+	QString qfn(filename);
+	ifstream myfile(qfn.toStdWString());
+#else
 	ifstream myfile(filename);
+#endif
 
 	if (myfile.is_open())
 	{
@@ -86,8 +91,8 @@ bool radBackup::IsValidHistoryFile(vector<string> & str_list)
 	if (str_list.size() != 3)
 		return false;
 
-	if (str_list[0].find(".tif") == string::npos)
-		return false;
+//	if (str_list[0].find(".tif") == string::npos)
+//		return false;
 
 	if (str_list[2].find(".txt") == string::npos)
 		return false;
@@ -100,7 +105,12 @@ void radBackup::ReadContourMarkers(string & file_name, vector< ContourMarker > &
 	cone_shapes.clear();
 
 	string line;
+#ifdef _WIN32
+	QString qfn(file_name.c_str());
+	ifstream myfile(qfn.toStdWString());
+#else
 	ifstream myfile(file_name.c_str());
+#endif
 	vector<double> tmp_array;
 	bool shape_valid_flag = true;
 	ContourMarker tmp_shape;
@@ -173,12 +183,13 @@ void radBackup::ReadContourMarkers(string & file_name, vector< ContourMarker > &
 	}
 }
 
-void radBackup::ReadBackup(MarkerInformation & split_infor)
+bool radBackup::ReadBackup(MarkerInformation & split_infor)
 {
 	//get all sub-directories
 	QDirIterator it(BackupDir.c_str(), QDir::Dirs | QDir::NoSymLinks | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
 	vector<string> str_list;
 	string img_file_path;
+	bool backup_found = false;
 	
 	while (it.hasNext()) 
 	{
@@ -191,6 +202,8 @@ void radBackup::ReadBackup(MarkerInformation & split_infor)
 			if (str_list[0].compare(split_infor.split_file_names.first) != 0)
 				continue;
 
+			backup_found = true;
+
 			ReadSegmentationParameters(file_dir, split_infor);
 
 			//load existing marker shapes
@@ -202,13 +215,19 @@ void radBackup::ReadBackup(MarkerInformation & split_infor)
 			
 		}
 	}
+	return backup_found;
 }
 
 void radBackup::WriteContourMarkers(string & file_name, vector< ContourMarker > & cone_shapes)
 {
 	ofstream myfile;
 
+#ifdef _WIN32
+	QString qfn(file_name.c_str());
+	myfile.open(qfn.toStdWString());
+#else
 	myfile.open(file_name.c_str());
+#endif
 	myfile << "contours" << std::endl;
 	for (unsigned int i = 0; i<cone_shapes.size(); i++)
 	{
@@ -264,7 +283,12 @@ bool radBackup::RemoveDir(const QString &dirName)
 bool radBackup::IsRecordExisted(string & file_name, string & searched_str)
 {
 	string line;
+#ifdef _WIN32
+	QString qfn(file_name.c_str());
+	ifstream myfile(qfn.toStdWString());
+#else
 	ifstream myfile(file_name.c_str());
+#endif
 
 	if (myfile.is_open())
 	{
@@ -432,7 +456,12 @@ void radBackup::WriteBackup(MarkerInformation & split_infor)
 	ofstream myfile;
 
 	filename.assign(file_dir+"/"+split_infor.split_file_names.second+".txt");
+#ifdef _WIN32
+	QString qfn(filename.c_str());
+	myfile.open(qfn.toStdWString());
+#else
 	myfile.open(filename.c_str());
+#endif
 	myfile << split_infor.split_file_names.first << std::endl;
 
 	filename1 = WriteSegmentationParameters(file_dir, split_infor);

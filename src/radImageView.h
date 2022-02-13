@@ -62,10 +62,17 @@ class radMouseInteractorStylePP : public vtkInteractorStyleImage
 private:
 	DoublePointArray contour_pts;
 	bool LeftMousedPressed;
-	bool ControlDown;
-	int CursorShape;
+	bool ControlDown, ShiftDown, MouseScroll;
+	bool MouseIn;
 
-  public:
+	int img_dims[3];
+	int last_pick_value;
+
+	void add_contour_pt(double picked[3]);
+	void closest_border(double picked[3], DoublePointType pt, int* pidx = NULL);
+	void closest_border_2(double picked[3], DoublePointType pt);
+
+public:
     static radMouseInteractorStylePP* New();
     vtkTypeMacro(radMouseInteractorStylePP, vtkInteractorStyleImage);
 
@@ -73,16 +80,24 @@ private:
 	{
 		LeftMousedPressed = false;
 		ControlDown = false;
-		CursorShape = VTK_CURSOR_DEFAULT;
+		ShiftDown = false;
+		MouseScroll = false;
+		MouseIn = false;
+		last_pick_value = 0;
+		img_dims[0] = img_dims[1] = img_dims[2] = 0;
 	}
  
+	virtual void OnChar() override;
 	virtual void OnKeyDown() override;
 	virtual void OnKeyUp() override;
 	virtual void OnEnter() override;
+	virtual void OnLeave() override;
 	virtual void OnLeftButtonDown() override;
-	virtual void OnRightButtonDown() override;
 	virtual void OnMouseMove() override;
 	virtual void OnLeftButtonUp() override;
+	virtual void OnMiddleButtonDown() override;
+	virtual void OnMiddleButtonUp() override;
+	virtual void OnRightButtonDown() override;
 };
 
 class callbackContourWidget : public vtkCommand
@@ -108,6 +123,7 @@ const double SmallDisplacement = -0.01;
 class radImageView
 {
 private:
+	bool interpolationFlag;
 	
 	vtkSmartPointer<vtkImageData> ImageData;
 	vtkSmartPointer<vtkImageActor> ImageActor;
@@ -157,17 +173,27 @@ public:
 	radImageView(MarkerSystemSettings *);
 	~radImageView();
     
-    void ResetView(bool camera_flag = true); //used for initialization
+	void GetImageDimensions(int dims[3]) {
+		ImageData->GetDimensions(dims);
+	}
+
+	void ResetView(bool camera_flag = true); //used for initialization
 
     vtkSmartPointer<vtkRenderWindow> GetRenderWin() {return RenderWin;}
 
 	void SetSplitImage(RGBImageType::Pointer);
+	void SetColorInfo(ColorInfo ci);
+	ColorInfo GetColorInfo();
+
 	void InitializeView();
 	void SetConeContourVisibility(bool flag);
 	void SetConeCenterVisibility(bool flag);
 	void SetConeRegionVisibility(bool flag);
 	void SetConeRegionOpacity(double op);
 	void SetCenterGlyphScale(double scale);
+
+	bool GetInterpolation() { return interpolationFlag; }
+	void SetInterpolation(bool flag);
 	
 	void SetConeContourColor(double rgb[3]);
 	void SetConeCenterColor(double rgb[3]);

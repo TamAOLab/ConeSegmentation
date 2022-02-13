@@ -67,6 +67,16 @@ struct ConeSegmentationParameters
 	}
 };
 
+struct ColorInfo
+{
+	double color_level;
+	double color_window;
+	void reset() {
+		color_level = 127.5;
+		color_window = 255.;
+	}
+};
+
 namespace ConeSegmentation {
 	const double diffusionTimeStep = 1.0;
 	const unsigned int diffusionNumberOfSteps = 10;
@@ -298,6 +308,7 @@ public:
 	RGBImageType::Pointer split_image;
 	pair<string, string> split_file_names;
 	vector< ContourMarker > cone_contour_markers;
+	ColorInfo color_info;
 
 	stack<StackInformation> contour_operator_stack;
 
