@@ -64,6 +64,7 @@ public:
 
 	void EditConeContours(double, double, double);
 	void UpdateConeContours(vtkSmartPointer<vtkPolyData>);
+	void PushColorUndo(ColorInfo ci);
 
 	MouseOperation MouseOperationType;
 

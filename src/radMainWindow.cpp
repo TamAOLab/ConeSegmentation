@@ -987,6 +987,15 @@ void radMainWindow::UpdateConeContours(vtkSmartPointer<vtkPolyData> poly)
 	BackupResults(CurrentImageIndex);
 }
 
+void radMainWindow::PushColorUndo(ColorInfo ci)
+{
+	if (CurrentImageIndex < 0 || CurrentImageIndex >= SplitMarkerInfor.size())
+		return;
+
+	SplitMarkerInfor[CurrentImageIndex].contour_operator_stack.push(StackInformation(ci));
+	redoAct->setEnabled(!SplitMarkerInfor[CurrentImageIndex].contour_operator_stack.empty());
+}
+
 void radMainWindow::RemoveInvisibleShapes()
 {
 	if (CurrentImageIndex < 0 || CurrentImageIndex >= SplitMarkerInfor.size())
@@ -1040,7 +1049,7 @@ void radMainWindow::RedoConeOperations()
 				SplitMarkerInfor[CurrentImageIndex].cone_contour_markers[cur_stack_infor.shape_list[i]].is_visible = true;
 		}
 	}
-	else
+	else if (cur_stack_infor.shape_operator == Shape_Add)
 	{
 		for (unsigned int i = 0; i<cur_stack_infor.shape_list.size(); i++)
 		{
@@ -1048,6 +1057,9 @@ void radMainWindow::RedoConeOperations()
 				< SplitMarkerInfor[CurrentImageIndex].cone_contour_markers.size())
 				SplitMarkerInfor[CurrentImageIndex].cone_contour_markers[cur_stack_infor.shape_list[i]].is_visible = false;
 		}
+	}
+	else if (cur_stack_infor.shape_operator == Image_Op) {
+		ImageView->SetColorInfo(cur_stack_infor.ci);
 	}
 
 	redoAct->setEnabled(!SplitMarkerInfor[CurrentImageIndex].contour_operator_stack.empty());

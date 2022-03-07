@@ -67,6 +67,7 @@ private:
 
 	int img_dims[3];
 	int last_pick_value;
+	ColorInfo ci;
 
 	void add_contour_pt(double picked[3]);
 	void closest_border(double picked[3], DoublePointType pt, int* pidx = NULL);
@@ -183,6 +184,7 @@ public:
 
 	void SetSplitImage(RGBImageType::Pointer);
 	void SetColorInfo(ColorInfo ci);
+	void SetColorInfo(double color_level, double color_window);
 	ColorInfo GetColorInfo();
 
 	void InitializeView();

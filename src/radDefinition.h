@@ -89,7 +89,7 @@ namespace ConeSegmentation {
 enum MouseOperation { Mouse_Normal, Mouse_Add_Point, Mouse_Delete_Point, Mouse_Add_Contour, Mouse_Delete_Contour, 
 	Mouse_Delete_Single_Contour, Mouse_Edit_Contour };
 const double PI = 3.141592653589793238463;
-enum ShapeOperator { Shape_Delete, Shape_Add };
+enum ShapeOperator { Shape_Delete, Shape_Add, Image_Op };
 
 class MarkerBase
 {
@@ -276,6 +276,7 @@ class StackInformation
 public:
 	ShapeOperator shape_operator;
 	vector<int> shape_list;
+	ColorInfo ci;
 
 	StackInformation(ShapeOperator op, int id)
 	{
@@ -288,6 +289,10 @@ public:
 		shape_operator = op;
 		shape_list.clear();
 		shape_list.assign(ids.begin(), ids.end());
+	}
+
+	StackInformation(ColorInfo _ci) : shape_operator(Image_Op), ci(_ci) {
+		shape_list.clear();
 	}
 };
 

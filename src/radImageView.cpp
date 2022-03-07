@@ -189,6 +189,7 @@ void radMouseInteractorStylePP::OnLeftButtonDown()
 		return;
 	}
 	LeftMousedPressed = true;
+	ci = radMainWindow::GetPointer()->GetImageView()->GetColorInfo();
 	MouseOperation op = radMainWindow::GetPointer()->MouseOperationType;
 
 	if (this->Interactor->GetControlKey() && (op == Mouse_Add_Contour || op == Mouse_Edit_Contour)) {
@@ -338,8 +339,14 @@ void radMouseInteractorStylePP::OnLeftButtonUp()
 		}
 
 		contour_pts.clear();
-	} else
+	}
+	else {
 		vtkInteractorStyleImage::OnLeftButtonUp();
+		ColorInfo _ci = radMainWindow::GetPointer()->GetImageView()->GetColorInfo();
+		if (fabs(_ci.color_level - ci.color_level) > 0.01 || fabs(_ci.color_window - ci.color_window) > 0.01)
+			radMainWindow::GetPointer()->PushColorUndo(ci);
+
+	}
 	LeftMousedPressed = false;
 }
 
@@ -579,6 +586,11 @@ void radImageView::SetColorInfo(ColorInfo ci)
 {
 	ImageActor->GetProperty()->SetColorLevel(ci.color_level);
 	ImageActor->GetProperty()->SetColorWindow(ci.color_window);
+}
+void radImageView::SetColorInfo(double color_level, double color_window)
+{
+	ImageActor->GetProperty()->SetColorLevel(color_level);
+	ImageActor->GetProperty()->SetColorWindow(color_window);
 }
 ColorInfo radImageView::GetColorInfo()
 {
