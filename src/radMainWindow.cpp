@@ -270,6 +270,14 @@ void radMainWindow::createActions()
 	emptyAct->setToolTip(tr("Clear All Mouse Operations"));
 	connect(emptyAct, SIGNAL(triggered()), this, SLOT(RemoveInvisibleShapes()));
 
+	voronoiAct = new QAction(tr("Voronoi"), this);
+	voronoiAct->setShortcut(QKeySequence(tr("Ctrl+V")));
+	voronoiAct->setIcon(QIcon(":Voronoi.png"));
+	voronoiAct->setToolTip(tr("Toggle Voronoi diagram display [Ctrl+V]"));
+	voronoiAct->setCheckable(true);
+	voronoiAct->setChecked(SystemSettings->visibility_voronoi);
+	connect(voronoiAct, SIGNAL(triggered()), this, SLOT(ToggleVoronoi()));
+
 	aboutAct = new QAction(tr("About"), this);
 	aboutAct->setIcon(QIcon(":about.png"));
 	connect(aboutAct, SIGNAL(triggered()), this, SLOT(ShowAboutDialog()));
@@ -387,6 +395,7 @@ void radMainWindow::createToolBar()
 	drawToolBar->addSeparator();
 	drawToolBar->addAction(redoAct);
 	drawToolBar->addAction(emptyAct);
+	drawToolBar->addAction(voronoiAct);
 	drawToolBar->addAction(settingsAct);
 
 	drawToolBar->addSeparator();
@@ -1089,6 +1098,14 @@ void radMainWindow::ToggleInterpolation()
 	saveState();
 }
 
+void radMainWindow::ToggleVoronoi()
+{
+	int st = voronoiAct->isChecked();
+	ImageView->setVoronoi(st);
+	SystemSettings->visibility_voronoi = st;
+	WriteSystemSettings();
+}
+
 void radMainWindow::SetVisibility(bool flag)
 {
 	toggleVisibilityAct->setChecked(flag);
@@ -1233,9 +1250,10 @@ void radMainWindow::ReadSystemSettings()
 			SystemSettings->center_color = jobj_coloring["Center"].toString();
 
 		QJsonObject jobj_visiblity = jobj["Visibility"].toObject();
-		SystemSettings->visibility_contour = (bool) jobj_visiblity["Contour"].toInt();
-		SystemSettings->visibility_region = (bool) jobj_visiblity["Region"].toInt();
-		SystemSettings->visibility_center = (bool) jobj_visiblity["Center"].toInt();
+		SystemSettings->visibility_contour = jobj_visiblity["Contour"].toInt();
+		SystemSettings->visibility_region = jobj_visiblity["Region"].toInt();
+		SystemSettings->visibility_center = jobj_visiblity["Center"].toInt();
+		SystemSettings->visibility_voronoi = jobj_visiblity["Voronoi"].toInt();
 		if (jobj_visiblity["Opacity"].isDouble())
 			SystemSettings->region_opacity = jobj_visiblity["Opacity"].toDouble();
 
@@ -1253,6 +1271,7 @@ void radMainWindow::WriteSystemSettings()
 	QJsonObject jobj_visiblity;
 	jobj_visiblity["Contour"] = QJsonValue((int) SystemSettings->visibility_contour);
 	jobj_visiblity["Center"] = QJsonValue((int) SystemSettings->visibility_center);
+	jobj_visiblity["Voronoi"] = QJsonValue(SystemSettings->visibility_voronoi);
 	jobj_visiblity["Region"] = QJsonValue((int) SystemSettings->visibility_region);
 	jobj_visiblity["Opacity"] = QJsonValue(SystemSettings->region_opacity);
 	jobj["Visibility"] = jobj_visiblity;

@@ -9,7 +9,7 @@ include(InstallRequiredSystemLibraries)
 
 set(PROJECT_NAME "ConeSegmentation")
 set(PROJECT_VER "1.1.0")
-set(PROJECT_BUILD "02")
+set(PROJECT_BUILD "03")
 PROJECT(${PROJECT_NAME})
 
 string(TIMESTAMP PROJECT_DATE "%Y-%m-%d")

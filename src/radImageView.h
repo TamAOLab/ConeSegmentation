@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "radImgFunc.h"
+#include "radVoronoi.h"
 
 #include <vtkRenderer.h>
 #include <vtkProperty.h>
@@ -124,7 +125,8 @@ const double SmallDisplacement = -0.01;
 class radImageView
 {
 private:
-	bool interpolationFlag;
+	bool interpolationFlag = false;
+	bool voronoiFlag = false;
 	
 	vtkSmartPointer<vtkImageData> ImageData;
 	vtkSmartPointer<vtkImageActor> ImageActor;
@@ -151,6 +153,13 @@ private:
 	vtkSmartPointer<vtkPolyDataMapper> ContourMapper, RegionMapper;
 	vtkSmartPointer<vtkActor> ContourActor, RegionActor;
 	void DrawContours();
+
+	vtkSmartPointer<vtkPoints> VoronoiContourPoints;
+	vtkSmartPointer<vtkCellArray> VoronoiContourCells;
+	vtkSmartPointer<vtkPolyData> VoronoiContourPolydata;
+	vtkSmartPointer<vtkPolyDataMapper> VoronoiContourMapper;
+	vtkSmartPointer<vtkActor> VoronoiContourActor;
+	void DrawVoronoiContours();
 
 	vtkSmartPointer<vtkPoints> EditedContourPoints;
 	vtkSmartPointer<vtkCellArray> EditedContourCells;
@@ -204,9 +213,17 @@ public:
 	void SetContourWidth(int);
 	void SetInteractiveContours(DoublePointArray &, bool ending_flag = false);
 	void SetContourMarkers(vector< ContourMarker > &);
+	void GetContourPoints(DoublePointArray& markers);
+
+	bool getVoronoi() { return voronoiFlag; }
+	void setVoronoi(bool flag);
+
+	void updateVoronoiDiagram();
 
 	void EnableEditedContour(DoublePointArray &);
 	void DisableEditedContour();
+
+	void SetVoronoiContours(std::vector< DoublePointArray>& contours);
 };
 
 #endif // radImageView_H

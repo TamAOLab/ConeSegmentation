@@ -370,7 +370,7 @@ public:
 
 struct MarkerSystemSettings
 {
-	int visibility_contour, visibility_region, visibility_center;
+	int visibility_contour, visibility_region, visibility_center, visibility_voronoi;
 	int size_contour;
 	double size_center;
 	radColor contour_color;
@@ -380,9 +380,10 @@ struct MarkerSystemSettings
 
 	MarkerSystemSettings()
 	{
-		visibility_contour = true;
-		visibility_center = true;
-		visibility_region = false;
+		visibility_contour = 1;
+		visibility_center = 1;
+		visibility_region = 0;
+		visibility_voronoi = 0;
 
 		size_contour = 2;
 		size_center = 4.;

@@ -491,6 +491,23 @@ void radImageView::DrawContours()
 
 }
 
+void radImageView::DrawVoronoiContours()
+{
+	//=============== Edges of the Voronoi diagram =========================
+	VoronoiContourPoints = vtkSmartPointer<vtkPoints>::New();
+	VoronoiContourCells = vtkSmartPointer<vtkCellArray>::New();
+	VoronoiContourPolydata = vtkSmartPointer<vtkPolyData>::New();
+	VoronoiContourPolydata->SetPoints(VoronoiContourPoints);
+	VoronoiContourPolydata->SetLines(VoronoiContourCells);
+	VoronoiContourMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+	VoronoiContourMapper->SetInputData(VoronoiContourPolydata);
+	VoronoiContourMapper->ScalarVisibilityOff();
+	VoronoiContourActor = vtkSmartPointer<vtkActor>::New();
+	VoronoiContourActor->SetMapper(VoronoiContourMapper);
+	VoronoiContourActor->GetProperty()->SetColor(0., 196. / 255.0, 196. / 255.0);
+	VoronoiContourActor->GetProperty()->SetLineWidth(1.5);
+}
+
 void radImageView::DrawEditedContours()
 {
 	//add segmentation contour widget
@@ -524,6 +541,9 @@ radImageView::radImageView(MarkerSystemSettings * settings)
 	//draw contours
 	DrawContours();
 
+	//draw Voronoi diagram
+	DrawVoronoiContours();
+
 	//draw edited contour
 	DrawEditedContours();
 
@@ -536,6 +556,7 @@ radImageView::radImageView(MarkerSystemSettings * settings)
 	ImageRender->AddActor(InteractiveContourActor);
 	ImageRender->AddActor(ContourActor);
 	ImageRender->AddActor(RegionActor);
+	ImageRender->AddActor(VoronoiContourActor);
 
 	ImageStyle = vtkSmartPointer<radMouseInteractorStylePP>::New();
 	RenderWin = vtkSmartPointer<vtkRenderWindow>::New();
@@ -570,6 +591,7 @@ void radImageView::ApplySystemSettings()
 	SetConeRegionVisibility(SystemSettings->visibility_region);
 	SetConeRegionOpacity(SystemSettings->region_opacity);
 	SetCenterGlyphScale(SystemSettings->size_center);
+	setVoronoi(SystemSettings->visibility_voronoi);
 }
 
 void radImageView::SetSplitImage(RGBImageType::Pointer img)
@@ -630,6 +652,12 @@ void radImageView::InitializeView()
 	CenterPoints->SetNumberOfPoints(0);
 	CenterPolydata->Modified();
 	// CenterGlyph->Update();
+
+	VoronoiContourPoints->Initialize();
+	VoronoiContourCells->Initialize();
+	VoronoiContourPoints->Modified();
+	VoronoiContourCells->Modified();
+	VoronoiContourPolydata->Modified();
 }
 
 void radImageView::SetInterpolation(bool flag)
@@ -730,6 +758,41 @@ void radImageView::SetContourMarkers(vector< ContourMarker > &cone_marker_shapes
 	ContourCells->Modified();
 	CenterPoints->Modified();
 	CenterPolydata->Modified();
+	updateVoronoiDiagram();
+}
+
+void radImageView::GetContourPoints(DoublePointArray& markers)
+{
+	markers.resize(CenterPoints->GetNumberOfPoints());
+	for (unsigned int i = 0; vtkIdType(i) < CenterPoints->GetNumberOfPoints(); i++) {
+		double ppt[3];
+		CenterPoints->GetPoint(i, ppt);
+		DoublePointType& pt = markers[i];
+		pt[0] = ppt[0];
+		pt[1] = ppt[1];
+	}
+}
+
+void radImageView::setVoronoi(bool flag)
+{
+	voronoiFlag = flag;
+	updateVoronoiDiagram();
+}
+
+void radImageView::updateVoronoiDiagram()
+{
+	if (voronoiFlag) {
+		DoublePointArray markers;
+		GetContourPoints(markers);
+		int img_dims[3];
+		GetImageDimensions(img_dims);
+		std::vector<DoublePointArray> contours = VoronoiEdges(markers, img_dims[0], img_dims[1]);
+		SetVoronoiContours(contours);
+	}
+	else {
+		std::vector<DoublePointArray> contours;
+		SetVoronoiContours(contours);
+	}
 }
 
 void radImageView::SetConeContourColor(double rgb[3])
@@ -804,4 +867,27 @@ void radImageView::DisableEditedContour()
 	EditedContourPoly->Modified();
 
 	EditedContourWidget->Off();
+}
+
+void radImageView::SetVoronoiContours(std::vector< DoublePointArray>& contours)
+{
+	VoronoiContourPoints->Initialize();
+	VoronoiContourCells->Initialize();
+
+	for (unsigned int i = 0; size_t(i) < contours.size(); i++) {
+		DoublePointArray& contour = contours[i];
+		VoronoiContourCells->InsertNextCell(contour.size() + 1);
+		unsigned int current_pt_num = VoronoiContourPoints->GetNumberOfPoints();
+		for (unsigned int j = 0; size_t(j) < contour.size(); j++) {
+			DoublePointType& pt = contour[j];
+			VoronoiContourPoints->InsertNextPoint(pt[0], pt[1], SmallDisplacement);
+			VoronoiContourCells->InsertCellPoint(j + current_pt_num);
+		}
+		VoronoiContourCells->InsertCellPoint(current_pt_num);
+	}
+
+	VoronoiContourPoints->Modified();
+	VoronoiContourCells->Modified();
+	VoronoiContourPolydata->Modified();
+	RenderWin->Render();
 }

@@ -99,6 +99,7 @@ private slots:
 	void ShowSettingDialog();
 	void ToggleVisibility();
 	void ToggleInterpolation();
+	void ToggleVoronoi();
 
 	void showSegmentationPanel();
 	void purgeHistoryFiles();
@@ -149,7 +150,8 @@ private:
 	QAction * editContourAct;
 	QAction * eraseContourAct;
 	QAction * eraseSingleContourAct;
-	QAction * redoAct;
+	QAction* redoAct;
+	QAction* voronoiAct;
 	QAction * emptyAct;
 	QAction * settingsAct;
 	QAction * toggleVisibilityAct;
